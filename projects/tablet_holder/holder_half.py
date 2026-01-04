@@ -11,8 +11,8 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
     hd = params["adapter_hole_dist"]
     vd = params["visor_d"]
     
-    # Высота: планшет + 48мм
-    th_total = th + 48.0 
+    # Высота: планшет + 60мм (было 48)
+    th_total = th + 60.0 
     hw = (tw + wall * 2) / 2
     
     # Новые параметры для паза слайдера
@@ -49,16 +49,16 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
         # 4. Направляющие пазы
         tablet_bottom_y = th_total/2 - wall - th
         slot_top = tablet_bottom_y
+        # Паз до самого низа панели
         slot_bottom = -th_total/2
         
         # Широкий паз под передний блок слайдера
         with Locations((0, (slot_top + slot_bottom)/2, panel_t - st/2)):
             Box(sw/2 + 1, slot_top - slot_bottom, st + 0.5, align=(align_x, Align.CENTER, Align.CENTER), mode=Mode.SUBTRACT)
 
-        # Узкий сквозной паз под шейку
+        # Узкий сквозной паз под шейку (ТЕПЕРЬ ШИРИНОЙ 110мм)
         with Locations((0, (slot_top + slot_bottom)/2, panel_t/2)):
-            # Ширина паза 60мм (30 на половину)
-            Box(30, slot_top - slot_bottom, panel_t + 2, align=(align_x, Align.CENTER, Align.CENTER), mode=Mode.SUBTRACT)
+            Box(sw/2, slot_top - slot_bottom, panel_t + 2, align=(align_x, Align.CENTER, Align.CENTER), mode=Mode.SUBTRACT)
         
         # 5. Отверстия VESA и ниши под гайки
         xh = x_dir * 50.0
