@@ -39,12 +39,17 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
                     p4 = (y_bot, tt + panel_t)
                     Polyline(p1, p2, p3, p_bend, p4, close=True)
                 make_face()
+                # Скругляем внешний верхний угол ковша (p3)
+                v_to_fillet = s.vertices().filter_by(Axis.Y, th_total/2 - 1, th_total/2 + 1).filter_by(Axis.Z, total_depth - 1, total_depth + 1)
+                if v_to_fillet:
+                    fillet(v_to_fillet, radius=20)
             extrude(amount=-x_dir * wall)
 
         # 3. Верхний козырек (Roof)
         roof_depth = total_depth - panel_t
-        with Locations((0, th_total/2 - wall/2, panel_t + roof_depth/2)):
-            Box(hw, wall, roof_depth, align=(align_x, Align.CENTER, Align.CENTER))
+        with BuildPart(mode=Mode.ADD):
+            with Locations((0, th_total/2 - wall/2, panel_t + roof_depth/2)):
+                Box(hw, wall, roof_depth, align=(align_x, Align.CENTER, Align.CENTER))
             
         # 4. Направляющие пазы
         tablet_bottom_y = th_total/2 - wall - th
