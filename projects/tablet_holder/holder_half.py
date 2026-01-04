@@ -39,6 +39,10 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
                     p4 = (y_bot, tt + panel_t)
                     Polyline(p1, p2, p3, p_bend, p4, close=True)
                 make_face()
+                # Возвращаем большое скругление углового перехода (внешняя вершина p3)
+                v_corner = s.vertices().filter_by(Axis.Y, th_total/2 - 1, th_total/2 + 1).filter_by(Axis.Z, total_depth - 1, total_depth + 1)
+                if v_corner:
+                    fillet(v_corner, radius=20)
             extrude(amount=-x_dir * wall)
 
         # 3. Верхний козырек (Roof)
@@ -47,16 +51,7 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
             with Locations((0, th_total/2 - wall/2, panel_t + roof_depth/2)):
                 Box(hw, wall, roof_depth, align=(align_x, Align.CENTER, Align.CENTER))
 
-        # 3.1 Финальные скругления козырька (после объединения)
-        # Скругляем внешнюю верхнюю кромку "ковша" и крышки
-        top_edges = obj.part.edges().filter_by(Axis.Y, th_total/2 - wall/2, th_total/2 + wall/2).filter_by(Axis.Z, total_depth/2, total_depth)
-        if top_edges:
-            fillet(top_edges, radius=wall/2)
-        
-        # Смягчаем переднюю кромку козырька (1мм для "тонкого" вида)
-        front_edges = obj.part.edges().filter_by(Axis.Z, total_depth - 0.1, total_depth + 0.1)
-        if front_edges:
-            fillet(front_edges, radius=1.0)
+        # 4. Направляющие пазы
             
         # 4. Направляющие пазы
         tablet_bottom_y = th_total/2 - wall - th
