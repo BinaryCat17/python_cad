@@ -10,6 +10,7 @@ class CADRenderer:
         self.setup_scene()
         self.first_render = True
         self._mesh_cache = {} # Кэш для мешей, чтобы не пересчитывать их постоянно
+        self._actor_count = 0
 
     def setup_scene(self):
         """Настройка освещения и фона."""
@@ -60,48 +61,74 @@ class CADRenderer:
         self._mesh_cache[shape_hash] = mesh
         return mesh
 
-    def render_assembly(self, assembly):
-        """Отрисовывает сборку."""
-        root = assembly.build()
-        self.clear()
+    def render_shape(self, shape: Shape, name: str = None, color=None):
+        """Рендерит одиночный Shape (Part) или рекурсивно обходит Compound."""
+        self._actor_count += 1
         
-        # Очищаем кэш если он слишком большой
-        if len(self._mesh_cache) > 100:
-            self._mesh_cache.clear()
+        # 1. Получаем текущие свойства
+        obj_label = getattr(shape, "label", name if name else f"Part_{self._actor_count}")
+        obj_color = getattr(shape, "color", color)
         
-        all_nodes = [root] + list(root.descendants)
+        # 2. Если это Compound и у него НЕТ своего цвета - идем вглубь.
+        # Если цвет есть - рендерим его как единое целое.
+        is_compound = isinstance(shape, Compound)
         
-        for i, node in enumerate(all_nodes):
-            if not isinstance(node, Shape):
-                continue
+        if is_compound and obj_color is None:
+            try:
+                # В build123d Compound итерируем
+                for i, child in enumerate(shape):
+                    child_name = f"{obj_label}_{i}"
+                    self.render_shape(child, child_name, obj_color)
+                return
+            except:
+                pass 
+
+        # 3. Рендерим геометрию
+        try:
+            final_color = obj_color if obj_color else "#ffffff"
+            mesh = self._to_pyvista_mesh(shape)
             
-            # Если это Compound и у него есть дети, которые тоже являются Shape,
-            # то мы пропускаем этот узел, так как его геометрия будет отрисована
-            # через его детей (чтобы сохранить индивидуальные цвета и метки).
-            # Исключение: если мы хотим видеть Compound целиком как одну деталь.
-            has_shape_children = any(isinstance(c, Shape) for c in node.children)
-            if has_shape_children:
-                continue
-                
-            label = getattr(node, "label", "")
-            name = label if label else f"part_{i}"
-            raw_color = getattr(node, "color", "#ffffff")
-            color = raw_color.to_tuple() if hasattr(raw_color, "to_tuple") else raw_color
+            if mesh.n_points == 0:
+                return
+
+            if hasattr(final_color, "to_tuple"):
+                render_color = final_color.to_tuple()
+            else:
+                render_color = final_color
             
-            mesh = self._to_pyvista_mesh(node)
+            actor_name = f"actor_{self._actor_count}"
             
             self.plotter.add_mesh(
-                mesh, color=color, name=name, 
+                mesh, color=render_color, name=actor_name, 
                 pbr=True, metallic=0.0, roughness=0.5,
                 show_edges=False
             )
             
             edges = mesh.extract_feature_edges(feature_angle=20)
             if edges.n_cells > 0:
-                self.plotter.add_mesh(edges, color="#111111", line_width=3.0, name=f"{name}_e")
+                self.plotter.add_mesh(edges, color="#111111", line_width=1.0, name=f"{actor_name}_e")
+                
+        except Exception as e:
+            pass
+
+    def update_scene(self, shapes):
+        """Обновляет всю сцену на основе списка объектов или одного объекта."""
+        self.clear()
+        self._actor_count = 0
+        
+        if len(self._mesh_cache) > 500:
+            self._mesh_cache.clear()
             
+        if isinstance(shapes, (list, tuple)):
+            for shape in shapes:
+                self.render_shape(shape)
+        elif shapes:
+            self.render_shape(shapes)
+            
+        self.plotter.render()
+        if hasattr(self.plotter, "update"):
+            self.plotter.update()
+        
         if self.first_render:
             self.plotter.view_isometric()
             self.first_render = False
-            
-        self.plotter.render()

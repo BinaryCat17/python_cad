@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from PySide6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, 
                              QTreeWidget, QTreeWidgetItem, QHeaderView, QSplitter)
 from PySide6.QtCore import Qt
@@ -14,13 +15,16 @@ class CADMainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Python CAD")
         
-        # Load Config
+        # Load Application Config
         self.config = self._load_config()
         width = self.config.get("app", {}).get("window_width", 1280)
         height = self.config.get("app", {}).get("window_height", 800)
         self.resize(width, height)
         
-        self.assembly = assembly_class()
+        # Initialize Project
+        self.assembly_class = assembly_class
+        self.params = self._load_project_params(assembly_class)
+        self.assembly = assembly_class(self.params)
         
         # Layout
         central_widget = QWidget()
@@ -48,6 +52,21 @@ class CADMainWindow(QMainWindow):
         # Build and Show
         self.refresh_view()
         self._restore_camera()
+
+    def _load_project_params(self, assembly_class):
+        """Загружает параметры проекта из params.json в папке проекта."""
+        try:
+            # Пытаемся найти params.json в той же папке, где определен класс сборки
+            module_path = sys.modules[assembly_class.__module__].__file__
+            project_dir = os.path.dirname(module_path)
+            params_path = os.path.join(project_dir, "params.json")
+            
+            if os.path.exists(params_path):
+                with open(params_path, "r") as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"Warning: Could not load project params: {e}")
+        return {}
 
     def _load_config(self):
         if os.path.exists(CONFIG_FILE):
@@ -87,17 +106,18 @@ class CADMainWindow(QMainWindow):
     def refresh_view(self):
         """Перестраивает модель и обновляет дерево."""
         try:
-            # 1. Build
-            root_compound = self.assembly.build()
+            # 1. Build (теперь возвращает список деталей)
+            parts = self.assembly.build()
+            if not isinstance(parts, list):
+                parts = [parts]
             
             # 2. Render
-            self.renderer.render_assembly(self.assembly) # Renderer expects assembly wrapper
-            # Hack: modify renderer to accept root directly? 
-            # Actually renderer calls assembly.build(). Let's keep it consistent.
+            self.renderer.update_scene(parts)
             
             # 3. Update Tree
             self.tree_widget.clear()
-            self._populate_tree(root_compound, self.tree_widget.invisibleRootItem())
+            for part in parts:
+                self._populate_tree(part, self.tree_widget.invisibleRootItem())
             self.tree_widget.expandAll()
             
         except Exception as e:
@@ -117,13 +137,14 @@ class CADMainWindow(QMainWindow):
         item.setText(0, label)
         item.setText(1, type_name)
         
-        # Recurse for children
-        # In build123d, 'children' property usually holds the sub-shapes
-        if hasattr(node, "children"):
-             for child in node.children:
-                 # Только если ребенок - это Shape
-                 if isinstance(child, Shape):
-                     self._populate_tree(child, item)
+        # Если это Compound (вложенный), обходим его детей
+        if isinstance(node, Compound):
+            try:
+                for i, child in enumerate(node):
+                    if isinstance(child, Shape):
+                        self._populate_tree(child, item)
+            except:
+                pass
 
     def closeEvent(self, event):
         self._save_config()
