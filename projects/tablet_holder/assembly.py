@@ -11,38 +11,32 @@ class ProjectAssembly:
         self.load_config()
 
     def load_config(self):
-        """Загружает параметры из params.json. Ошибка если файла нет."""
         config_path = os.path.join(os.path.dirname(__file__), "params.json")
-        if not os.path.exists(config_path):
-             raise FileNotFoundError(f"Configuration file not found: {config_path}")
-             
         with open(config_path, "r") as f:
             self.params = json.load(f)
 
     def build(self) -> Compound:
-        """Строит сборку."""
-        # 1. Build Parts (передаем весь словарь params)
-        left_part = build_holder_half(self.params, is_left=True)
-        right_part = build_holder_half(self.params, is_left=False)
-        adapter_part = build_adapter(self.params)
+        # 1. Создаем детали
+        lp = build_holder_half(self.params, is_left=True)
+        rp = build_holder_half(self.params, is_left=False)
+        ap = build_adapter(self.params)
 
-        # 2. Metadata
-        left_part.label = "Left Half"
-        left_part.color = "#2c3e50"
+        # 2. ФИКСАЦИЯ ОСНОВЫ
+        # Мы НЕ используем connect_to для половин, так как они строятся в 0,0,0.
+        # Мы ПРИНУДИТЕЛЬНО обнуляем их трансформации.
+        lp.location = Location((0, 0, 0))
+        rp.location = Location((0, 0, 0))
         
-        right_part.label = "Right Half"
-        right_part.color = "#5dade2"
-        
-        adapter_part.label = "VESA Adapter"
-        adapter_part.color = "#e67e22"
+        # 3. ПРИВЯЗКА АДАПТЕРА
+        # Важно: мы перемещаем АДАПТЕР к ЛЕВОЙ ЧАСТИ.
+        ap.joints["mount"].connect_to(lp.joints["adapter_mount"])
 
-        # 3. Connect
-        adapter_part.joints["mount"].connect_to(left_part.joints["adapter_mount"])
+        # 4. Сборка
+        lp.label, lp.color = "Left Half", "#2c3e50"
+        rp.label, rp.color = "Right Half", "#5dade2"
+        ap.label, ap.color = "VESA Adapter", "#e67e22"
 
-        # 4. Hierarchy
-        root = Compound(label="Tablet Holder Assembly", children=[left_part, right_part, adapter_part])
-        left_part.parent = root
-        right_part.parent = root
-        adapter_part.parent = root
-        
+        # Создаем финальный объект
+        # В 0.10.0 порядок детей важен для отрисовки.
+        root = Compound(label="Tablet Holder Assembly", children=[lp, rp, ap])
         return root
