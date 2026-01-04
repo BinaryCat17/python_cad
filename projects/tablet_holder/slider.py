@@ -6,56 +6,60 @@ def build_slider(params: dict) -> Part:
     wall = params["wall"]
     tt = params["tablet_t"]
     st = params.get("slider_front_t", 6.0)
-    sw = params.get("slider_f_width", 110.0)
+    sw = params.get("slider_f_width", 140.0) # 140мм
     
     with BuildPart() as obj:
-        # 1. Передний блок (L-профиль: блок в пазу + лапа)
-        # Удлиняем направляющую часть до 60мм для стабильности
+        # 1. Передний блок (Лапа + блок в пазу)
+        # Все эскизы на Plane.YZ (X=0) для строгой симметрии
         with BuildSketch(Plane.YZ) as s1:
             with BuildLine():
-                p1 = (0, st + 14)        # Верх лапы (у джойнта)
-                p2 = (-6, st + 14)       # Толщина лапы 6мм
+                p1 = (0, st + 14)        # Верх лапы
+                p2 = (-6, st + 14)       # Толщина лапы
                 p3 = (-6, st)            # Поверхность панели
-                p4 = (-60, st)           # Конец блока в пазу (длина 60)
+                p4 = (-60, st)           # Конец блока в пазу
                 p5 = (-60, 0)            # Дно паза
-                p6 = (0, 0)              # Возврат к джойнту по дну паза
+                p6 = (0, 0)              # Возврат
                 Polyline(p1, p2, p3, p4, p5, p6, close=True)
             make_face()
         extrude(amount=sw/2, both=True)
 
-        # 2. Шейка (Neck) - Центральный силовой элемент
-        # Делаем её широкой (108мм), чтобы она почти заполняла паз 110мм
-        # Длина шейки по Y теперь 60мм
+        # 2. Шейка (Neck) - входит в паз 110мм
         with BuildPart(mode=Mode.ADD):
-            # Центр шейки в local Z = -wall/2
-            with BuildSketch(Plane.YZ.offset(-wall/2)) as s2:
-                 Rectangle(60, wall + 4, align=(Align.MAX, Align.CENTER))
+            with BuildSketch(Plane.YZ) as s2:
+                 with BuildLine():
+                     # По оси X эскиза (Y мир): от 0 до -60
+                     # По оси Y эскиза (Z мир): от -wall-2 до 2 (охват панели wall)
+                     p1 = (0, 2)
+                     p2 = (-60, 2)
+                     p3 = (-60, -wall-2)
+                     p4 = (0, -wall-2)
+                     Polyline(p1, p2, p3, p4, close=True)
+                 make_face()
             extrude(amount=108/2, both=True)
 
-        # 3. Задняя плита (Back Plate)
-        # Охватывает панель сзади. Ширина 130мм (шире паза 110мм)
+        # 3. Задняя плита (Back Plate) - ширина 160мм
         with BuildPart(mode=Mode.ADD):
-            with BuildSketch(Plane.YZ.offset(-wall)) as s3:
+            with BuildSketch(Plane.YZ) as s3:
                 with BuildLine():
-                    p1 = (0, 0)          # Верх задней плиты
-                    p2 = (0, -6)         # Толщина плиты 6мм
-                    p3 = (-65, -6)       # Длина вниз (чуть длиннее блока)
-                    p4 = (-65, 0)        # Плоскость прилегания к корпусу
+                    # Прилегает к задней стенке (Z = -wall) и уходит вглубь до -wall-6
+                    p1 = (0, -wall)
+                    p2 = (0, -wall-6)
+                    p3 = (-65, -wall-6)
+                    p4 = (-65, -wall)
                     Polyline(p1, p2, p3, p4, close=True)
                 make_face()
-            extrude(amount=130/2, both=True)
+            extrude(amount=160/2, both=True)
 
         # 4. Отверстия под болты-анкеры
-        # Болты на x = +/- 50мм. В пазу шириной 110мм (x от -55 до +55) они проходят свободно.
+        # Болты на x = +/- 50мм.
         with BuildPart(mode=Mode.SUBTRACT):
-            # Смещение на заднюю плиту (Z = -wall - 3)
             # Отверстия на Y = -30 (середина шейки)
-            with Locations(Plane.XY.offset(-wall - 3) * Location((0, -30, 0))):
+            # Центр отверстий по Z (мировой) = -wall/2
+            with Locations(Plane.XY.offset(-wall/2) * Location((0, -30, 0))):
                 for x_pos in [-50, 50]:
                     with Locations((x_pos, 0, 0)):
-                        Cylinder(radius=5.5/2, height=30) # Сквозное отверстие сквозь слайдер
+                        Cylinder(radius=5.5/2, height=40, align=Align.CENTER)
 
         RigidJoint("mount", obj.part, Location((0, 0, 0)))
     
-    return obj.part        
     return obj.part

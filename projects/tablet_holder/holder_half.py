@@ -52,13 +52,13 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
         # Паз до самого низа панели
         slot_bottom = -th_total/2
         
-        # Широкий паз под передний блок слайдера
+        # Широкий паз под передний блок слайдера (sw = 140)
         with Locations((0, (slot_top + slot_bottom)/2, panel_t - st/2)):
             Box(sw/2 + 1, slot_top - slot_bottom, st + 0.5, align=(align_x, Align.CENTER, Align.CENTER), mode=Mode.SUBTRACT)
 
-        # Узкий сквозной паз под шейку (ТЕПЕРЬ ШИРИНОЙ 110мм)
+        # Узкий сквозной паз под шейку (фиксировано 110мм для болтов)
         with Locations((0, (slot_top + slot_bottom)/2, panel_t/2)):
-            Box(sw/2, slot_top - slot_bottom, panel_t + 2, align=(align_x, Align.CENTER, Align.CENTER), mode=Mode.SUBTRACT)
+            Box(55, slot_top - slot_bottom, panel_t + 2, align=(align_x, Align.CENTER, Align.CENTER), mode=Mode.SUBTRACT)
         
         # 5. Отверстия VESA и ниши под гайки
         xh = x_dir * 50.0
