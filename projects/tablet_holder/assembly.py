@@ -24,9 +24,9 @@ class ProjectAssembly:
         
         # Позиционируем слайдер в пазу
         wall = self.params.get("wall", 8.0)
-        # slider_axis на Z=wall. Смещаем шейку слайдера в центр панели (wall/2)
-        # И двигаем по Y (например на 60мм вверх от нижней точки)
-        sp.location = lp.location * lp.joints["slider_axis"].location * Location((0, 60, -wall/2))
+        # slider_start находится ровно там, где заканчивается планшет.
+        # Для реалистичности опустим слайдер на 20мм (середина паза 40мм)
+        sp.location = lp.location * lp.joints["slider_start"].location * Location((0, -20, 0))
         
         lp.label, lp.color = "Left Half", "#2c3e50"
         rp.label, rp.color = "Right Half", "#5dade2"

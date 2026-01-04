@@ -3,7 +3,7 @@ from build123d import *
 import math
 
 def build_holder_half(params: dict, is_left: bool = True) -> Part:
-    """Строит половину корпуса. Анкеры перенесены на заднюю сторону."""
+    """Строит половину корпуса с открытым снизу пазом для слайдера."""
     
     tw, th, tt = params["tablet_w"], params["tablet_h"], params["tablet_t"]
     wall = params["wall"]
@@ -11,25 +11,26 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
     hd = params["adapter_hole_dist"]
     vd = params["visor_d"]
     
+    # Высота: планшет + 48мм
+    th_total = th + 48.0 
     hw = (tw + wall * 2) / 2
-    th_total = th + wall * 2
     total_depth = tt + wall + vd
     
     with BuildPart() as obj:
         x_dir = -1 if is_left else 1
         align_x = Align.MAX if is_left else Align.MIN
         
-        # 1. Задняя панель (Z от 0 до wall)
+        # 1. Задняя панель
         Box(hw, th_total, wall, align=(align_x, Align.CENTER, Align.MIN))
         
-        # 2. Боковая стенка (Трапеция)
+        # 2. Боковая стенка (Ковш)
         with BuildPart(mode=Mode.ADD):
             with BuildSketch(Plane.YZ.offset(x_dir * hw)) as s:
                 with BuildLine():
                     y_top, y_bot = th_total/2, -th_total/2
                     p1, p2 = (y_bot, 0), (y_top, 0)
                     p3 = (y_top, total_depth)
-                    p_bend = (y_top / 3, total_depth)
+                    p_bend = (y_top / 2, total_depth)
                     p4 = (y_bot, tt + wall)
                     Polyline(p1, p2, p3, p_bend, p4, close=True)
                 make_face()
@@ -40,29 +41,26 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
         with Locations((0, th_total/2 - wall/2, wall + roof_depth/2)):
             Box(hw, wall, roof_depth, align=(align_x, Align.CENTER, Align.CENTER))
             
-        # 4. Центральный паз (Slider Track) - сквозной
-        with Locations((0, -th_total/4, wall/2)):
-            Box(30, th_total/2 + 20, wall + 2, align=(align_x, Align.CENTER, Align.CENTER), mode=Mode.SUBTRACT)
+        # 4. Направляющий паз (U-образный, открытый снизу)
+        tablet_bottom_y = th_total/2 - wall - th
+        slot_top = tablet_bottom_y
+        slot_bottom = -th_total/2
+        with Locations((0, (slot_top + slot_bottom)/2, wall/2)):
+            # Ширина паза 60мм (30 на половину)
+            Box(30, slot_top - slot_bottom, wall + 2, align=(align_x, Align.CENTER, Align.CENTER), mode=Mode.SUBTRACT)
         
-        # 5. Анкеры для пружин на ТЫЛЬНОЙ стороне (Z < 0)
-        with Locations((x_dir * 40, 0, 0)):
-            Cylinder(radius=4, height=12, align=(Align.CENTER, Align.CENTER, Align.MAX))
-            # Шляпка, чтобы пружина не слетела
-            with Locations((0, 0, -12)):
-                Cylinder(radius=6, height=2, align=(Align.CENTER, Align.CENTER, Align.MAX))
-
-        # 6. Углубление под адаптер (Recess)
-        with Locations((0, 0, 0)):
-            Box(aw/2 + 0.5, aw + 1.0, 3.0, align=(align_x, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)
-
-        # 7. Отверстия VESA
-        xh = x_dir * hd/2
-        for yh in [-hd/2, hd/2]:
+        # 5. Отверстия VESA и ниши под гайки
+        xh = x_dir * 50.0
+        for yh in [-50.0, 50.0]:
             with Locations((xh, yh, 0)):
                 Cylinder(radius=5.5/2, height=wall, mode=Mode.SUBTRACT)
+                with BuildSketch(Plane.XY.offset(wall)) as s:
+                    with Locations((xh, yh)):
+                        RegularPolygon(radius=9.5/2, side_count=6)
+                extrude(amount=-4.0, mode=Mode.SUBTRACT)
 
-        # 8. ДЖОЙНТЫ
-        RigidJoint("slider_axis", obj.part, Location((0, -th_total/2, wall)))
+        # 6. ДЖОЙНТЫ
+        RigidJoint("slider_start", obj.part, Location((0, tablet_bottom_y, wall/2)))
         RigidJoint("adapter_mount", obj.part, Location((0, 0, 3)))
     
     return obj.part

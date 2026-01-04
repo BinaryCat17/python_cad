@@ -64,22 +64,21 @@ class CADRenderer:
     def render_shape(self, shape: Shape, name: str = None, color=None):
         """Рендерит одиночный Shape (Part) или рекурсивно обходит Compound."""
         self._actor_count += 1
+        actor_names = []
         
         # 1. Получаем текущие свойства
         obj_label = getattr(shape, "label", name if name else f"Part_{self._actor_count}")
         obj_color = getattr(shape, "color", color)
         
         # 2. Если это Compound и у него НЕТ своего цвета - идем вглубь.
-        # Если цвет есть - рендерим его как единое целое.
         is_compound = isinstance(shape, Compound)
         
         if is_compound and obj_color is None:
             try:
-                # В build123d Compound итерируем
                 for i, child in enumerate(shape):
                     child_name = f"{obj_label}_{i}"
-                    self.render_shape(child, child_name, obj_color)
-                return
+                    actor_names.extend(self.render_shape(child, child_name, obj_color))
+                return actor_names
             except:
                 pass 
 
@@ -89,7 +88,7 @@ class CADRenderer:
             mesh = self._to_pyvista_mesh(shape)
             
             if mesh.n_points == 0:
-                return
+                return actor_names
 
             if hasattr(final_color, "to_tuple"):
                 render_color = final_color.to_tuple()
@@ -103,27 +102,33 @@ class CADRenderer:
                 pbr=True, metallic=0.0, roughness=0.5,
                 show_edges=False
             )
+            actor_names.append(actor_name)
             
             edges = mesh.extract_feature_edges(feature_angle=20)
             if edges.n_cells > 0:
-                self.plotter.add_mesh(edges, color="#111111", line_width=1.0, name=f"{actor_name}_e")
+                edge_actor_name = f"{actor_name}_e"
+                self.plotter.add_mesh(edges, color="#111111", line_width=1.0, name=edge_actor_name)
+                actor_names.append(edge_actor_name)
                 
         except Exception as e:
             pass
+        
+        return actor_names
 
     def update_scene(self, shapes):
-        """Обновляет всю сцену на основе списка объектов или одного объекта."""
+        """Обновляет всю сцену. Возвращает список списков имен акторов для каждого входного объекта."""
         self.clear()
         self._actor_count = 0
+        all_actor_groups = []
         
         if len(self._mesh_cache) > 500:
             self._mesh_cache.clear()
             
         if isinstance(shapes, (list, tuple)):
             for shape in shapes:
-                self.render_shape(shape)
+                all_actor_groups.append(self.render_shape(shape))
         elif shapes:
-            self.render_shape(shapes)
+            all_actor_groups.append(self.render_shape(shapes))
             
         self.plotter.render()
         if hasattr(self.plotter, "update"):
@@ -132,3 +137,5 @@ class CADRenderer:
         if self.first_render:
             self.plotter.view_isometric()
             self.first_render = False
+            
+        return all_actor_groups

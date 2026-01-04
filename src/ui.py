@@ -39,6 +39,7 @@ class CADMainWindow(QMainWindow):
         self.tree_widget.setHeaderLabels(["Item", "Type"])
         self.tree_widget.header().setSectionResizeMode(0, QHeaderView.Stretch)
         self.tree_widget.setFixedWidth(300)
+        self.tree_widget.itemChanged.connect(self._on_item_changed)
         splitter.addWidget(self.tree_widget)
         
         # 2. 3D View
@@ -111,24 +112,41 @@ class CADMainWindow(QMainWindow):
             if not isinstance(parts, list):
                 parts = [parts]
             
-            # 2. Render
-            self.renderer.update_scene(parts)
+            # 2. Render and get actor names
+            actor_groups = self.renderer.update_scene(parts)
             
             # 3. Update Tree
+            self.tree_widget.blockSignals(True) # Предотвращаем срабатывание при заполнении
             self.tree_widget.clear()
-            for part in parts:
-                self._populate_tree(part, self.tree_widget.invisibleRootItem())
+            for i, part in enumerate(parts):
+                item = self._populate_tree(part, self.tree_widget.invisibleRootItem())
+                if item and i < len(actor_groups):
+                    # Сохраняем список имен акторов в элементе дерева
+                    item.setData(0, Qt.UserRole, actor_groups[i])
+                    item.setCheckState(0, Qt.Checked)
             self.tree_widget.expandAll()
+            self.tree_widget.blockSignals(False)
             
         except Exception as e:
             import traceback
             traceback.print_exc()
             print(f"Build Error: {e}")
 
+    def _on_item_changed(self, item, column):
+        """Обработка изменения состояния чекбокса."""
+        if column == 0:
+            visible = item.checkState(0) == Qt.Checked
+            actor_names = item.data(0, Qt.UserRole)
+            if actor_names:
+                for name in actor_names:
+                    if name in self.interactor.renderer.actors:
+                        self.interactor.renderer.actors[name].SetVisibility(visible)
+                self.interactor.render()
+
     def _populate_tree(self, node, parent_item):
-        """Рекурсивно заполняет дерево."""
+        """Рекурсивно заполняет дерево. Возвращает созданный элемент."""
         if not isinstance(node, Shape):
-            return
+            return None
 
         label = getattr(node, "label", "Part")
         type_name = type(node).__name__
@@ -136,6 +154,8 @@ class CADMainWindow(QMainWindow):
         item = QTreeWidgetItem(parent_item)
         item.setText(0, label)
         item.setText(1, type_name)
+        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+        item.setCheckState(0, Qt.Checked)
         
         # Если это Compound (вложенный), обходим его детей
         if isinstance(node, Compound):
@@ -145,6 +165,8 @@ class CADMainWindow(QMainWindow):
                         self._populate_tree(child, item)
             except:
                 pass
+        
+        return item
 
     def closeEvent(self, event):
         self._save_config()
