@@ -64,7 +64,8 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
         xh = x_dir * 50.0
         for yh in [-50.0, 50.0]:
             with Locations((xh, yh, 0)):
-                Cylinder(radius=5.5/2, height=panel_t, mode=Mode.SUBTRACT)
+                # Используем Align.MIN, чтобы цилиндр шел от 0 вверх на всю толщину
+                Cylinder(radius=5.5/2, height=panel_t, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)
                 with BuildSketch(Plane.XY.offset(panel_t)) as s:
                     with Locations((xh, yh)):
                         RegularPolygon(radius=9.5/2, side_count=6)
