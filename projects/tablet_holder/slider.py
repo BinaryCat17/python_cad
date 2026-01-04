@@ -10,37 +10,36 @@ def build_slider(params: dict) -> Part:
     tablet_front_z = st + tt
     
     with BuildPart() as obj:
-        # 1. Основной профиль: Блок в пазу + Мощный Г-зацеп
+        # 1. Передняя панель + Зацеп (в передней выемке st)
+        # Z: 0...st (в координатах джойнта, что соответствует 8...14 в корпусе)
         with BuildSketch(Plane.YZ) as s1:
             with BuildLine():
                 # Y - вертикаль, Z - глубина
                 Polyline(
-                    (0, 0),                   # 1. Верх-зад блока в пазу
-                    (-60, 0),                 # 2. Низ-зад блока
-                    (-60, st),                # 3. Низ-перед блока (у панели)
-                    (-10, st),                # 4. Толщина платформы снизу (10мм)
-                    (-10, tablet_front_z + 8),# 5. Вылет платформы (Z=32)
-                    (20, tablet_front_z + 8), # 6. Зацеп ВВЕРХ (высота 20мм)
-                    (20, tablet_front_z),     # 7. Загиб к экрану (толщина 8мм)
-                    (0, tablet_front_z),      # 8. Внутренний угол платформы
+                    (0, 0),                   # Низ-зад передней панели
+                    (-60, 0),                 # Верх-зад передней панели
+                    (-60, st),                # Верх-перед панели (грань корпуса)
+                    (-10, st),                # Переход к зацепу
+                    (-10, tablet_front_z + 8),# Вылет зацепа
+                    (20, tablet_front_z + 8), # Кончик зацепа (высота)
+                    (20, tablet_front_z),     # Кончик зацепа (толщина)
+                    (0, tablet_front_z),      # Внутренний угол
                     close=True
                 )
             make_face()
         extrude(amount=sw/2, both=True)
 
-        # 2. Шейка (108мм)
+        # 2. Шейка (Neck) - должна быть в толщине основной стенки (wall)
+        # Z: -wall...0 (соответствует 0...8 в корпусе)
         with BuildPart(mode=Mode.ADD):
-            with BuildSketch(Plane.YZ) as s2:
-                 Rectangle(60, wall + 4, align=(Align.MAX, Align.CENTER))
-            extrude(amount=108/2, both=True)
+            with Locations((0, -30, -wall/2)):
+                Box(108, 60, wall)
 
-        # 3. Задняя плита (170мм)
+        # 3. Задняя плита (Back Plate) - должна быть ЗА корпусом
+        # Z: -(wall+6)...-wall (соответствует -6...0 в мировых координатах)
         with BuildPart(mode=Mode.ADD):
-            with BuildSketch(Plane.YZ.offset(-wall)) as s3:
-                with BuildLine():
-                    Polyline((0, 0), (0, -6), (-65, -6), (-65, 0), close=True)
-                make_face()
-            extrude(amount=170/2, both=True)
+            with Locations((0, -32.5, -wall - 3)):
+                Box(170, 65, 6)
 
         # 4. Отверстия под болты
         with BuildPart(mode=Mode.SUBTRACT):

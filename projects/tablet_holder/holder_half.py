@@ -68,6 +68,14 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
                     with Locations((xh, yh)): RegularPolygon(radius=9.5/2, side_count=6)
                 extrude(amount=-4.0, mode=Mode.SUBTRACT)
 
+        # 6. Вырез под кабель (только для правой части)
+        if not is_left:
+            tablet_center_y = th_total/2 - wall - th/2
+            cable_cutout_w = 60.0
+            # Вырез должен быть чуть глубже толщины планшета
+            with Locations((x_dir * (hw - wall/2), tablet_center_y, panel_t + tt/2)):
+                Box(wall + 2, cable_cutout_w, tt + 4.0, mode=Mode.SUBTRACT)
+
         RigidJoint("slider_start", obj.part, Location((0, tablet_bottom_y, wall)))
         RigidJoint("adapter_mount", obj.part, Location((0, 0, 3)))
     
