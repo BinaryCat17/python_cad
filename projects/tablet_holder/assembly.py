@@ -21,22 +21,22 @@ class ProjectAssembly:
         rp = build_holder_half(self.params, is_left=False)
         ap = build_adapter(self.params)
 
-        # 2. ФИКСАЦИЯ ОСНОВЫ
-        # Мы НЕ используем connect_to для половин, так как они строятся в 0,0,0.
-        # Мы ПРИНУДИТЕЛЬНО обнуляем их трансформации.
+        # 2. ПОЗИЦИОНИРОВАНИЕ (БЕЗ МАГИИ)
+        # Половины строго в нуле.
         lp.location = Location((0, 0, 0))
         rp.location = Location((0, 0, 0))
         
-        # 3. ПРИВЯЗКА АДАПТЕРА
-        # Важно: мы перемещаем АДАПТЕР к ЛЕВОЙ ЧАСТИ.
-        ap.joints["mount"].connect_to(lp.joints["adapter_mount"])
+        # Адаптер: совмещаем его джойнт "mount" с джойнтом "adapter_mount" левой части.
+        # Вместо connect_to, который может двигать lp, мы сами вычисляем позицию ap.
+        # ap.location = lp.location * lp_joint_loc * ap_joint_loc_inv
+        
+        target_loc = lp.location * lp.joints["adapter_mount"].location * ap.joints["mount"].location.inverse()
+        ap.location = target_loc
 
-        # 4. Сборка
+        # 3. Сборка
         lp.label, lp.color = "Left Half", "#2c3e50"
         rp.label, rp.color = "Right Half", "#5dade2"
         ap.label, ap.color = "VESA Adapter", "#e67e22"
 
-        # Создаем финальный объект
-        # В 0.10.0 порядок детей важен для отрисовки.
         root = Compound(label="Tablet Holder Assembly", children=[lp, rp, ap])
         return root
