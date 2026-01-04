@@ -39,29 +39,20 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
                     p4 = (y_bot, tt + panel_t)
                     Polyline(p1, p2, p3, p_bend, p4, close=True)
                 make_face()
+                # Мощные скругления в 2D - это 100% стабильно
+                # Скругляем верхний угол (p3) и нижний угол (p4) на 25мм
+                v_corners = s.vertices().filter_by(Axis.Z, total_depth-1, total_depth+1)
+                if v_corners:
+                    fillet(v_corners, radius=25)
             extrude(amount=-x_dir * wall)
 
         # 3. Верхний козырек (Roof)
         roof_depth = total_depth - panel_t
         with BuildPart(mode=Mode.ADD):
+            # Используем обычный Box, так как боковина со скруглением 25мм все равно задает основной профиль
             with Locations((0, th_total/2 - wall/2, panel_t + roof_depth/2)):
                 Box(hw, wall, roof_depth, align=(align_x, Align.CENTER, Align.CENTER))
 
-        # 3.1 Единое скругление козырька
-        # Выбираем ребро на стыке верха и переда (основной угловой переход)
-        corner_edges = obj.part.edges().filter_by(Axis.Y, th_total/2-0.5, th_total/2+0.5).filter_by(Axis.Z, total_depth-0.5, total_depth+0.5)
-        # Исключаем зону стыка X=0
-        safe_corner = [e for e in corner_edges if abs(e.center().X) > 2.0]
-        if safe_corner:
-            fillet(safe_corner, radius=10) # 10мм - золотая середина для 3D
-            
-        # Скругление передней кромки для эффекта тонкого пластика
-        front_face_edges = obj.part.edges().filter_by(Axis.Z, total_depth-0.1, total_depth+0.1)
-        very_front = [e for e in front_face_edges if abs(e.center().X) > 2.0]
-        if very_front:
-            # Скругляем все передние ребра на 1мм
-            fillet(very_front, radius=1.0)
-            
         # 4. Направляющие пазы
             
         # 4. Направляющие пазы
