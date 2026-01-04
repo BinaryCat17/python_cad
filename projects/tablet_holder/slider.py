@@ -5,51 +5,52 @@ def build_slider(params: dict) -> Part:
     """Строит монолитный слайдер с глубокой интеграцией узлов."""
     wall = params["wall"]
     tt = params["tablet_t"]
-    w2 = wall / 2
+    st = params.get("slider_front_t", 6.0)
+    sw = params.get("slider_f_width", 110.0)
     
     with BuildPart() as obj:
         # 1. Передний блок (L-профиль: платформа + хват)
-        # Экструдируем на 110мм
+        # Z=0 - это дно паза. Блок идет от 0 до st.
         with BuildSketch(Plane.YZ) as s1:
             with BuildLine():
                 # Профиль в плоскости YZ (Y-высота, Z-толщина)
-                # Передняя панель начинается от w2 и идет вперед
-                p1 = (25, w2)           # Верхняя внутренняя
-                p2 = (25, w2 + 6)       # Верхняя внешняя
-                p3 = (-50, w2 + 6)      # Нижняя внешняя (начало губы)
-                p4 = (-50, w2 + 20)     # Край губы вперед
-                p5 = (-56, w2 + 20)     # Толщина губы
-                p6 = (-56, w2)          # Возврат к стенке корпуса
+                p1 = (25, 0)             # Верхняя внутренняя
+                p2 = (25, st)            # Верхняя внешняя (вровень с панелью)
+                p3 = (-50, st)           # Нижняя внешняя (начало губы)
+                p4 = (-50, st + 14)      # Край губы вперед ( tt-2 примерно)
+                p5 = (-56, st + 14)      # Толщина губы
+                p6 = (-56, 0)            # Возврат к дну паза
                 Polyline(p1, p2, p3, p4, p5, p6, close=True)
             make_face()
-        extrude(amount=110/2, both=True)
+        extrude(amount=sw/2, both=True)
 
         # 2. Шейка (Neck) - Центральный силовой элемент
-        # Создаем перекрытие (overlap) по 2мм с каждой стороны для прочности
+        # Проходит сквозь панель толщиной wall.
+        # Идем от -wall-2 до +2 для надежного перекрытия.
         with BuildPart(mode=Mode.ADD):
-            with BuildSketch(Plane.YZ) as s2:
-                # Шейка должна быть выше и толще, чтобы "прошить" обе пластины
-                # Высота 30, толщина wall + 4 (заходит по 2мм в каждую сторону)
-                Rectangle(30, wall + 4, align=(Align.CENTER, Align.CENTER))
+            # Смещаем эскиз шейки так, чтобы она была внутри панели
+            # Центр шейки в local Z = -wall/2
+            with BuildSketch(Plane.YZ.offset(-wall/2)) as s2:
+                 Rectangle(30, wall + 4, align=(Align.CENTER, Align.CENTER))
             extrude(amount=58/2, both=True)
 
         # 3. Задняя плита (Back Plate)
+        # Начинается от -wall и идет вглубь (назад)
         with BuildPart(mode=Mode.ADD):
-            with BuildSketch(Plane.YZ) as s3:
-                # Плоская плита сзади
+            with BuildSketch(Plane.YZ.offset(-wall)) as s3:
                 with BuildLine():
-                    p1 = (25, -w2)
-                    p2 = (25, -w2 - 6)
-                    p3 = (-25, -w2 - 6)
-                    p4 = (-25, -w2)
+                    p1 = (25, 0)
+                    p2 = (25, -6)
+                    p3 = (-25, -6)
+                    p4 = (-25, 0)
                     Polyline(p1, p2, p3, p4, close=True)
                 make_face()
             extrude(amount=120/2, both=True)
 
         # 4. Отверстия под болты-анкеры
         with BuildPart(mode=Mode.SUBTRACT):
-            # Смещение на заднюю плиту
-            with Locations(Plane.XY.offset(-w2 - 3)):
+            # Смещение на заднюю плиту (Z = -wall - 3)
+            with Locations(Plane.XY.offset(-wall - 3)):
                 for x_pos in [-50, 50]:
                     with Locations((x_pos, 0, 0)):
                         Cylinder(radius=5.5/2, height=20)

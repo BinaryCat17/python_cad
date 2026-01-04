@@ -14,14 +14,19 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
     # Высота: планшет + 48мм
     th_total = th + 48.0 
     hw = (tw + wall * 2) / 2
-    total_depth = tt + wall + vd
+    
+    # Новые параметры для паза слайдера
+    st = params.get("slider_front_t", 6.0)
+    sw = params.get("slider_f_width", 110.0)
+    panel_t = wall + st
+    total_depth = tt + panel_t + vd
     
     with BuildPart() as obj:
         x_dir = -1 if is_left else 1
         align_x = Align.MAX if is_left else Align.MIN
         
-        # 1. Задняя панель
-        Box(hw, th_total, wall, align=(align_x, Align.CENTER, Align.MIN))
+        # 1. Задняя панель (утолщенная)
+        Box(hw, th_total, panel_t, align=(align_x, Align.CENTER, Align.MIN))
         
         # 2. Боковая стенка (Ковш)
         with BuildPart(mode=Mode.ADD):
@@ -31,36 +36,43 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
                     p1, p2 = (y_bot, 0), (y_top, 0)
                     p3 = (y_top, total_depth)
                     p_bend = (y_top / 2, total_depth)
-                    p4 = (y_bot, tt + wall)
+                    p4 = (y_bot, tt + panel_t)
                     Polyline(p1, p2, p3, p_bend, p4, close=True)
                 make_face()
             extrude(amount=-x_dir * wall)
 
         # 3. Верхний козырек (Roof)
-        roof_depth = total_depth - wall
-        with Locations((0, th_total/2 - wall/2, wall + roof_depth/2)):
+        roof_depth = total_depth - panel_t
+        with Locations((0, th_total/2 - wall/2, panel_t + roof_depth/2)):
             Box(hw, wall, roof_depth, align=(align_x, Align.CENTER, Align.CENTER))
             
-        # 4. Направляющий паз (U-образный, открытый снизу)
+        # 4. Направляющие пазы
         tablet_bottom_y = th_total/2 - wall - th
         slot_top = tablet_bottom_y
         slot_bottom = -th_total/2
-        with Locations((0, (slot_top + slot_bottom)/2, wall/2)):
+        
+        # Широкий паз под передний блок слайдера
+        with Locations((0, (slot_top + slot_bottom)/2, panel_t - st/2)):
+            Box(sw/2 + 1, slot_top - slot_bottom, st + 0.5, align=(align_x, Align.CENTER, Align.CENTER), mode=Mode.SUBTRACT)
+
+        # Узкий сквозной паз под шейку
+        with Locations((0, (slot_top + slot_bottom)/2, panel_t/2)):
             # Ширина паза 60мм (30 на половину)
-            Box(30, slot_top - slot_bottom, wall + 2, align=(align_x, Align.CENTER, Align.CENTER), mode=Mode.SUBTRACT)
+            Box(30, slot_top - slot_bottom, panel_t + 2, align=(align_x, Align.CENTER, Align.CENTER), mode=Mode.SUBTRACT)
         
         # 5. Отверстия VESA и ниши под гайки
         xh = x_dir * 50.0
         for yh in [-50.0, 50.0]:
             with Locations((xh, yh, 0)):
-                Cylinder(radius=5.5/2, height=wall, mode=Mode.SUBTRACT)
-                with BuildSketch(Plane.XY.offset(wall)) as s:
+                Cylinder(radius=5.5/2, height=panel_t, mode=Mode.SUBTRACT)
+                with BuildSketch(Plane.XY.offset(panel_t)) as s:
                     with Locations((xh, yh)):
                         RegularPolygon(radius=9.5/2, side_count=6)
                 extrude(amount=-4.0, mode=Mode.SUBTRACT)
 
         # 6. ДЖОЙНТЫ
-        RigidJoint("slider_start", obj.part, Location((0, tablet_bottom_y, wall/2)))
+        # slider_start теперь на дне паза (Z = wall)
+        RigidJoint("slider_start", obj.part, Location((0, tablet_bottom_y, wall)))
         RigidJoint("adapter_mount", obj.part, Location((0, 0, 3)))
     
     return obj.part

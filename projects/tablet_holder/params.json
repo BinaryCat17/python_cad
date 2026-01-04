@@ -4,6 +4,8 @@
     "tablet_t": 16.0,
     "wall": 8.0,
     "slot_t": 2.0,
+    "slider_front_t": 6.0,
+    "slider_f_width": 110.0,
     "visor_d": 50.0,
     "visor_angle": 20.0,
     "claw_grip": 15.0,
