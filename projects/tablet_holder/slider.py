@@ -13,20 +13,21 @@ def build_slider(params: dict) -> Part:
         # 1. Передняя панель + Зацеп (в передней выемке st)
         # Z: 0...st (в координатах джойнта, что соответствует 8...14 в корпусе)
         with BuildSketch(Plane.YZ) as s1:
-            with BuildLine():
+            with BuildLine() as bl:
                 # Y - вертикаль, Z - глубина
-                # tablet_front_z (24.0) - поверхность экрана
-                Polyline(
-                    (0, 0),                   # Низ-зад передней панели
-                    (-60, 0),                 # Верх-зад передней панели
-                    (-60, st),                # Верх-перед панели (грань корпуса)
-                    (-10, st),                # Переход к зацепу
-                    (-10, tablet_front_z + 8),# Внешняя грань зацепа (верх)
-                    (20, tablet_front_z + 12),# Кончик зацепа (отогнут на 4мм от экрана)
-                    (20, tablet_front_z + 4), # Кончик зацепа (толщина, тоже с отступом)
-                    (0, tablet_front_z),      # Внутренний угол (у основания экрана)
-                    close=True
-                )
+                p1 = (0, 0)
+                p2 = (-60, 0)
+                p3 = (-60, st)
+                p4 = (-10, st)
+                p5 = (-10, tablet_front_z + 8)
+                p6 = (20, tablet_front_z + 12)
+                p7 = (20, tablet_front_z + 4)
+                p8 = (0, tablet_front_z)
+                
+                Polyline(p1, p2, p3, p4, p5, p6, p7, p8, close=True)
+                # Скругляем ВНЕШНИЙ угол перехода между базой и крюком
+                fillet(bl.vertices()[6], radius=25.0)
+                fillet(bl.vertices()[2], radius=10.0)
             make_face()
         extrude(amount=sw/2, both=True)
 
@@ -42,9 +43,9 @@ def build_slider(params: dict) -> Part:
             with Locations((0, -32.5, -wall - 3)):
                 Box(170, 65, 6)
 
-        # 4. Отверстия под болты
+        # 4. Отверстия под болты (смещены на 20мм ниже для прочности)
         with BuildPart(mode=Mode.SUBTRACT):
-            with Locations(Plane.XY.offset(-wall/2) * Location((0, -30, 0))):
+            with Locations(Plane.XY.offset(-wall/2) * Location((0, -50, 0))):
                 for x_pos in [-50, 50]:
                     with Locations((x_pos, 0, 0)):
                         Cylinder(radius=5.5/2, height=40, align=Align.CENTER)
