@@ -103,6 +103,35 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
                         with Locations((xh, yh)): RegularPolygon(radius=nut_r, side_count=6)
                     extrude(amount=-4.0, mode=Mode.SUBTRACT)
 
+        # 6. Смягчение внешних граней (Fillet)
+        y_top = obj.part.bounding_box().max.Y
+        
+        def is_external(e):
+            # 1. Ребра на плоскости стыка X=0 никогда не скругляем
+            if all(abs(v.X) < 0.05 for v in e.vertices()): return False
+            
+            c = e.center()
+            # 2. Только САМЫЕ ВНЕШНИЕ обводы (верх, бок и передний край козырька)
+            if abs(c.Y - y_top) < 0.1: return True # Верх
+            if abs(abs(c.X) - hw) < 0.1 and c.Z > panel_t: return True # Бок
+            if abs(c.Z - (panel_t + tt + vd)) < 0.1: return True # Перед козырька
+            
+            # 3. Внешние углы задней панели
+            if abs(c.X) > sw/2 + 10.0 and c.Z < 1.0: return True
+            
+            return False
+
+        external_edges = [e for e in obj.edges() if is_external(e)]
+        
+        if external_edges:
+            try:
+                fillet(external_edges, radius=2.0)
+            except:
+                # Если группа упала, скругляем только верхние (самые важные)
+                top_edges = [e for e in external_edges if abs(e.center().Y - y_top) < 0.1]
+                try: fillet(top_edges, radius=2.0)
+                except: pass
+
         RigidJoint("slider_start", obj.part, Location((0, tablet_bottom_y, wall)))
         # Джойнт на задней поверхности (Z=0) в центре панели (Y=0)
         RigidJoint("adapter_mount", obj.part, Location((0, 0, 0)))
