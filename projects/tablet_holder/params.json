@@ -9,8 +9,8 @@
     "visor_d": 50.0,
     "visor_angle": 20.0,
     "claw_grip": 15.0,
-    "adapter_w": 120.0,
+    "adapter_w": 310.0,
     "adapter_h": 120.0,
-    "adapter_t": 8.0,
+    "adapter_t": 2.0,
     "adapter_hole_dist": 100.0
 }

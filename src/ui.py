@@ -2,11 +2,12 @@ import json
 import os
 import sys
 from PySide6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, 
-                             QTreeWidget, QTreeWidgetItem, QHeaderView, QSplitter)
+                             QTreeWidget, QTreeWidgetItem, QHeaderView, QSplitter,
+                             QPushButton)
 from PySide6.QtCore import Qt
 from pyvistaqt import QtInteractor
 from src.renderer import CADRenderer
-from build123d import Shape, Compound
+from build123d import Shape, Compound, export_stl, export_brep
 
 CONFIG_FILE = "config.json"
 
@@ -34,13 +35,24 @@ class CADMainWindow(QMainWindow):
         splitter = QSplitter(Qt.Horizontal)
         main_layout.addWidget(splitter)
         
-        # 1. Scene Graph (Tree)
+        # 1. Scene Graph (Tree) and Controls
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+
         self.tree_widget = QTreeWidget()
         self.tree_widget.setHeaderLabels(["Item", "Type"])
         self.tree_widget.header().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.tree_widget.setFixedWidth(300)
         self.tree_widget.itemChanged.connect(self._on_item_changed)
-        splitter.addWidget(self.tree_widget)
+        left_layout.addWidget(self.tree_widget)
+
+        self.export_button = QPushButton("Export All (STL + BREP)")
+        self.export_button.clicked.connect(self.export_parts)
+        self.export_button.setStyleSheet("background-color: #2e7d32; color: white; font-weight: bold; padding: 5px;")
+        left_layout.addWidget(self.export_button)
+
+        left_panel.setFixedWidth(300)
+        splitter.addWidget(left_panel)
         
         # 2. 3D View
         self.interactor = QtInteractor(self)
@@ -53,6 +65,38 @@ class CADMainWindow(QMainWindow):
         # Build and Show
         self.refresh_view()
         self._restore_camera()
+
+    def export_parts(self):
+        """Экспортирует все детали сборки в форматы STL и BREP."""
+        try:
+            stl_dir = os.path.join("out", "stl")
+            brep_dir = os.path.join("out", "brep")
+            os.makedirs(stl_dir, exist_ok=True)
+            os.makedirs(brep_dir, exist_ok=True)
+            
+            parts = self.assembly.build()
+            if not isinstance(parts, list):
+                parts = [parts]
+                
+            for i, part in enumerate(parts):
+                label = getattr(part, "label", f"part_{i}")
+                safe_label = "".join([c if c.isalnum() else "_" for c in label.lower()])
+                
+                # Export STL
+                stl_path = os.path.join(stl_dir, f"{safe_label}.stl")
+                export_stl(part, stl_path)
+                
+                # Export BREP
+                brep_path = os.path.join(brep_dir, f"{safe_label}.brep")
+                export_brep(part, brep_path)
+                
+                print(f"Exported: {safe_label} (STL & BREP)")
+                
+            print(f"Successfully exported to {stl_dir}/ and {brep_dir}/")
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"Export Error: {e}")
 
     def _load_project_params(self, assembly_class):
         """Загружает параметры проекта из params.json в папке проекта."""

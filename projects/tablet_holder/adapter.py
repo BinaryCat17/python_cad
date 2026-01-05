@@ -2,28 +2,32 @@ from __future__ import annotations
 from build123d import *
 
 def build_adapter(params: dict) -> Part:
-    """Строит адаптер крепления VESA."""
-    # Получаем параметры без дефолтных значений (вызовет ошибку если ключа нет, что и нужно)
-    w = params["adapter_w"]
-    h = params["adapter_h"]
-    t = params["adapter_t"]
-    hole_dist = params["adapter_hole_dist"]
+    """Строит стальную пластину-адаптер, стягивающую половины корпуса."""
+    w = params.get("adapter_w", 310.0) # Увеличили до 310 мм
+    # Высота 160 мм дает отступ 20 мм от центров отверстий (которые на +/- 60)
+    h_total = 160.0 
+    t = params.get("adapter_t", 2.0)
     
     with BuildPart() as obj:
-        # Строим адаптер от 0 вверх
-        Box(w, h, t, align=(Align.CENTER, Align.CENTER, Align.MIN))
+        # Пластина-основание
+        Box(w, h_total, t, align=(Align.CENTER, Align.CENTER, Align.MIN))
         
-        # Красивая фаска на верхнем ребре
-        chamfer(obj.edges().filter_by(Axis.Z).sort_by(Axis.Z)[-1], 2.0)
-        
-        # Отверстия
+        # 1. Вырез под слайдер (маленькая выемка по нижнему краю)
+        # Ширина 180 мм, глубина 10 мм. 
         with BuildPart(mode=Mode.SUBTRACT):
-            # Берем верхнюю плоскость (она теперь точно на Z=t)
-            with Locations(obj.faces().sort_by(Axis.Z)[-1]):
-                with Locations(*[(x, y) for x in [-hole_dist/2, hole_dist/2] for y in [-hole_dist/2, hole_dist/2]]):
-                     Cylinder(radius=5.0/2, height=t*2)
+            # Позиционируем вырез ровно по нижнему краю (Y = -h_total/2)
+            with Locations((0, -h_total/2, t/2)):
+                Box(180, 10, t + 5, align=(Align.CENTER, Align.MIN, Align.CENTER))
+
+        # 2. Отверстия (все 12 штук)
+        # Центр отверстий должен совпадать с центром пластины (Y=0)
+        with BuildPart(mode=Mode.SUBTRACT):
+            with Locations(Plane.XY.offset(t/2)):
+                x_coords = [-140.0, -90.0, -40.0, 40.0, 90.0, 140.0]
+                with Locations(*[(x, y) for x in x_coords for y in [-60.0, 60.0]]):
+                     Cylinder(radius=5.5/2, height=t+5)
         
-        # Mount Joint: на ВЕРХНЕЙ грани (Z=t), смотрит ВВЕРХ (+Z)
-        RigidJoint("mount", obj.part, Location((0, 0, t), (0, 0, 0)))
+        # Mount Joint: на ПЕРЕДНЕЙ грани пластины (Z=t) в её центре (Y=0)
+        RigidJoint("mount", obj.part, Location((0, 0, t)))
     
     return obj.part
