@@ -19,15 +19,22 @@ def build_slider(params: dict) -> Part:
                 p2 = (-60, 0)
                 p3 = (-60, st)
                 p4 = (-10, st)
-                p5 = (-10, tablet_front_z + 8)
-                p6 = (20, tablet_front_z + 12)
+                p5 = (-10, tablet_front_z + 12) # Увеличили толщину до 12мм
+                p6 = (20, tablet_front_z + 16)  # Увеличили толщину до 12мм
                 p7 = (20, tablet_front_z + 4)
                 p8 = (0, tablet_front_z)
                 
                 Polyline(p1, p2, p3, p4, p5, p6, p7, p8, close=True)
-                # Скругляем ВНЕШНИЙ угол перехода между базой и крюком
-                fillet(bl.vertices()[6], radius=25.0)
-                fillet(bl.vertices()[2], radius=10.0)
+                
+                # Используем детерминированный подход из holder_half
+                def get_closest(pts, target):
+                    return sorted(pts, key=lambda p: (p.X - target[0])**2 + (p.Y - target[1])**2)[0]
+                
+                # Скругляем угол перехода (p4) для прочности и внешний угол (p3)
+                fillet(get_closest(bl.vertices(), p4), radius=25.0)
+                fillet(get_closest(bl.vertices(), p5), radius=5.0)
+                fillet(get_closest(bl.vertices(), p7), radius=5.0)
+                fillet(get_closest(bl.vertices(), p8), radius=10.0)
             make_face()
         extrude(amount=sw/2, both=True)
 
