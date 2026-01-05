@@ -12,5 +12,7 @@
     "adapter_w": 310.0,
     "adapter_h": 120.0,
     "adapter_t": 2.0,
-    "adapter_hole_dist": 100.0
+    "adapter_hole_dist": 100.0,
+    "bolt_d": 4.9,
+    "nut_w": 8.0
 }

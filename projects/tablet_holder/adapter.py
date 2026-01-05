@@ -7,6 +7,7 @@ def build_adapter(params: dict) -> Part:
     # Высота 160 мм дает отступ 20 мм от центров отверстий (которые на +/- 60)
     h_total = 160.0 
     t = params.get("adapter_t", 2.0)
+    bd = params.get("bolt_d", 4.9)
     
     with BuildPart() as obj:
         # Пластина-основание
@@ -25,7 +26,7 @@ def build_adapter(params: dict) -> Part:
             with Locations(Plane.XY.offset(t/2)):
                 x_coords = [-140.0, -90.0, -40.0, 40.0, 90.0, 140.0]
                 with Locations(*[(x, y) for x in x_coords for y in [-60.0, 60.0]]):
-                     Cylinder(radius=5.5/2, height=t+5)
+                     Cylinder(radius=bd/2, height=t+5)
         
         # Mount Joint: на ПЕРЕДНЕЙ грани пластины (Z=t) в её центре (Y=0)
         RigidJoint("mount", obj.part, Location((0, 0, t)))

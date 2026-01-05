@@ -55,11 +55,12 @@ def build_slider(params: dict) -> Part:
                 Box(170, 65, 6)
 
         # 4. Отверстия под болты (смещены на 20мм ниже для прочности)
+        bd = params.get("bolt_d", 4.9)
         with BuildPart(mode=Mode.SUBTRACT):
             with Locations(Plane.XY.offset(-wall/2) * Location((0, -50, 0))):
                 for x_pos in [-50, 50]:
                     with Locations((x_pos, 0, 0)):
-                        Cylinder(radius=5.5/2, height=40, align=Align.CENTER)
+                        Cylinder(radius=bd/2, height=40, align=Align.CENTER)
 
         RigidJoint("mount", obj.part, Location((0, 0, 0)))
     
