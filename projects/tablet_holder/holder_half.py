@@ -139,8 +139,8 @@ def build_holder_half(params: dict, is_left: bool = True, segment: str = "all") 
             v_tabs.append({"y": roof_y, "z": z_pos, "dy": panel_t, "dz": seg_dz})
         
         # 2. Пазы задней панели
-        for y_pos in [120.0, 80.0, 40.0, -22.0, -65.5]:
-            v_tabs.append({"y": y_pos, "z": panel_t/2, "dy": 15.0, "dz": panel_t})
+        for y_pos in [120.0, 80.0, 40.0, -22.0, -60.5]:
+            v_tabs.append({"y": y_pos, "z": panel_t/2, "dy": 25.0, "dz": panel_t})
 
         v_tab_h = 10.0
         for i, tab in enumerate(v_tabs):
