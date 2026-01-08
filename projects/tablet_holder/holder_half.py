@@ -126,21 +126,32 @@ def build_holder_half(params: dict, is_left: bool = True, segment: str = "all") 
                     extrude(amount=-4.0, mode=Mode.SUBTRACT)
 
         # 6. ВЕРТИКАЛЬНЫЕ ШИПЫ (X=0) - Соединение лево-право
-        # Добавляем ДО разрезания, чтобы они были частью основного тела
-        # 3 сверху, 2 снизу. Нижний шип (-65.5) точно выровнен по краю выреза слайдера.
-        v_tabs = [120.0, 80.0, 40.0, -22.0, -65.5] 
+        # Добавляем шипы ДО разрезания. 
+        roof_depth = total_depth - panel_t
+        roof_y = th_total/2 - panel_t/2
+        
+        v_tabs = []
+        # 1. Пазы козырька (Схема: Шип - Пропуск - Паз вдоль глубины Z)
+        # Используем ровно 1/3 глубины без зазоров для идеальной стыковки
+        seg_dz = roof_depth / 3
+        for i in [0, 2]: # i=0 (у панели), i=2 (у края козырька)
+            z_pos = panel_t + (i + 0.5) * seg_dz
+            v_tabs.append({"y": roof_y, "z": z_pos, "dy": panel_t, "dz": seg_dz})
+        
+        # 2. Пазы задней панели
+        for y_pos in [120.0, 80.0, 40.0, -22.0, -65.5]:
+            v_tabs.append({"y": y_pos, "z": panel_t/2, "dy": 15.0, "dz": panel_t})
+
         v_tab_h = 10.0
-        for i, y_pos in enumerate(v_tabs):
-            # Чередуем: на четных индексах левый - папа, на нечетных - мама
-            left_is_male = (i % 2 == 0)
-            is_male = left_is_male if is_left else not left_is_male
-            
+        for i, tab in enumerate(v_tabs):
+            # Логика Male/Female
+            is_male = (i % 2 == 0) if is_left else (i % 2 != 0)
             with Locations(Plane.YZ):
-                with Locations((y_pos, panel_t / 2)):
+                with Locations((tab["y"], tab["z"])):
                     if is_male:
-                        Box(15.0, panel_t, v_tab_h * 2, mode=Mode.ADD)
+                        Box(tab["dy"], tab["dz"], v_tab_h * 2, mode=Mode.ADD)
                     else:
-                        Box(15.0 + 0.04, panel_t + 0.04, v_tab_h * 2 + 0.04, mode=Mode.SUBTRACT)
+                        Box(tab["dy"] + 0.04, tab["dz"] + 0.04, v_tab_h * 2 + 0.04, mode=Mode.SUBTRACT)
 
         # 7. ГОРИЗОНТАЛЬНОЕ РАЗДЕЛЕНИЕ (вдоль оси Y=0)
         if segment == "top":
@@ -148,20 +159,32 @@ def build_holder_half(params: dict, is_left: bool = True, segment: str = "all") 
         elif segment == "bottom":
             split(bisect_by=Plane.XZ, keep=Keep.BOTTOM)
 
-        # 8. ГОРИЗОНТАЛЬНЫЕ ШИПЫ (Y=0) - Зигзаг соединение верх-низ
-        h_tab_x = [30.0, 70.0, 110.0, 150.0]
+        # 8. ГОРИЗОНТАЛЬНЫЕ ШИПЫ (Y=0) - Соединение верх-низ
+        h_tabs = []
+        # 1. Пазы задней панели
+        for x_pos in [30.0, 70.0, 110.0, 150.0]:
+            h_tabs.append({"x": x_pos, "z": panel_t/2, "dx": 20.0, "dz": panel_t})
+        
+        # 2. Один паз для боковой стенки (смещен вперед на 5мм от центра профиля)
+        side_x = hw - wall/2
+        # Глубина боковой стенки на Y=0 ~ 56мм. Центр 28.0 + 5.0 = 33.0
+        h_tabs.append({"x": side_x, "z": 33.0, "dx": wall, "dz": 20.0})
+
         h_tab_h = 10.0
         if segment != "all":
-            for i, x_pos in enumerate(h_tab_x):
-                xh = -x_pos if is_left else x_pos
-                # ИНВЕРТИРОВАНО: на нечетных индексах нижний - папа, на четных - мама
+            for i, tab in enumerate(h_tabs):
+                xh = -tab["x"] if is_left else tab["x"]
+                # Инвертируем логику для панели (i < 4), но сохраняем для боковины (i == 4)
                 is_male = (i % 2 != 0) if segment == "bottom" else (i % 2 == 0)
+                if i == 4: # Сохраняем ориентацию бокового паза
+                    is_male = not is_male
+                    
                 with Locations(Plane.XZ):
-                    with Locations((xh, panel_t / 2)):
+                    with Locations((xh, tab["z"])):
                         if is_male:
-                            Box(20.0, panel_t, h_tab_h * 2, mode=Mode.ADD)
+                            Box(tab["dx"], tab["dz"], h_tab_h * 2, mode=Mode.ADD)
                         else:
-                            Box(20.0 + 0.04, panel_t + 0.04, h_tab_h * 2 + 0.04, mode=Mode.SUBTRACT)
+                            Box(tab["dx"] + 0.04, tab["dz"] + 0.04, h_tab_h * 2 + 0.04, mode=Mode.SUBTRACT)
 
         # 9. Смягчение внешних граней (Fillet)
         # Применяем только к целой модели или очень осторожно к частям
