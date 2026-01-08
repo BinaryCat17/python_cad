@@ -2,8 +2,8 @@ from __future__ import annotations
 from build123d import *
 import math
 
-def build_holder_half(params: dict, is_left: bool = True) -> Part:
-    """Строит половину корпуса с прямой фиксирующей планкой."""
+def build_holder_half(params: dict, is_left: bool = True, segment: str = "all") -> Part:
+    """Строит половину корпуса или её четверть (Top/Bottom) с шипами для сборки."""
     
     tw, th, tt = params["tablet_w"], params["tablet_h"], params["tablet_t"]
     wall = params["wall"]
@@ -125,37 +125,63 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
                         with Locations((xh, yh)): RegularPolygon(radius=nut_r, side_count=6)
                     extrude(amount=-4.0, mode=Mode.SUBTRACT)
 
-        # 6. Смягчение внешних граней (Fillet)
-        y_top = obj.part.bounding_box().max.Y
-        
-        def is_external(e):
-            # 1. Ребра на плоскости стыка X=0 никогда не скругляем
-            if all(abs(v.X) < 0.05 for v in e.vertices()): return False
+        # 6. ВЕРТИКАЛЬНЫЕ ШИПЫ (X=0) - Соединение лево-право
+        # Добавляем ДО разрезания, чтобы они были частью основного тела
+        # 3 сверху, 2 снизу. Нижний шип (-65.5) точно выровнен по краю выреза слайдера.
+        v_tabs = [120.0, 80.0, 40.0, -22.0, -65.5] 
+        v_tab_h = 10.0
+        for i, y_pos in enumerate(v_tabs):
+            # Чередуем: на четных индексах левый - папа, на нечетных - мама
+            left_is_male = (i % 2 == 0)
+            is_male = left_is_male if is_left else not left_is_male
             
-            c = e.center()
-            # 2. Только САМЫЕ ВНЕШНИЕ обводы (верх, бок и передний край козырька)
-            if abs(c.Y - y_top) < 0.1: return True # Верх
-            if abs(abs(c.X) - hw) < 0.1 and c.Z > panel_t: return True # Бок
-            if abs(c.Z - (panel_t + tt + vd)) < 0.1: return True # Перед козырька
-            
-            # 3. Внешние углы задней панели
-            if abs(c.X) > sw/2 + 10.0 and c.Z < 1.0: return True
-            
-            return False
+            with Locations(Plane.YZ):
+                with Locations((y_pos, panel_t / 2)):
+                    if is_male:
+                        Box(15.0, panel_t, v_tab_h * 2, mode=Mode.ADD)
+                    else:
+                        Box(15.0 + 0.04, panel_t + 0.04, v_tab_h * 2 + 0.04, mode=Mode.SUBTRACT)
 
-        external_edges = [e for e in obj.edges() if is_external(e)]
-        
-        if external_edges:
-            try:
-                fillet(external_edges, radius=2.0)
-            except:
-                # Если группа упала, скругляем только верхние (самые важные)
-                top_edges = [e for e in external_edges if abs(e.center().Y - y_top) < 0.1]
-                try: fillet(top_edges, radius=2.0)
+        # 7. ГОРИЗОНТАЛЬНОЕ РАЗДЕЛЕНИЕ (вдоль оси Y=0)
+        if segment == "top":
+            split(bisect_by=Plane.XZ, keep=Keep.TOP)
+        elif segment == "bottom":
+            split(bisect_by=Plane.XZ, keep=Keep.BOTTOM)
+
+        # 8. ГОРИЗОНТАЛЬНЫЕ ШИПЫ (Y=0) - Зигзаг соединение верх-низ
+        h_tab_x = [30.0, 70.0, 110.0, 150.0]
+        h_tab_h = 10.0
+        if segment != "all":
+            for i, x_pos in enumerate(h_tab_x):
+                xh = -x_pos if is_left else x_pos
+                # ИНВЕРТИРОВАНО: на нечетных индексах нижний - папа, на четных - мама
+                is_male = (i % 2 != 0) if segment == "bottom" else (i % 2 == 0)
+                with Locations(Plane.XZ):
+                    with Locations((xh, panel_t / 2)):
+                        if is_male:
+                            Box(20.0, panel_t, h_tab_h * 2, mode=Mode.ADD)
+                        else:
+                            Box(20.0 + 0.04, panel_t + 0.04, h_tab_h * 2 + 0.04, mode=Mode.SUBTRACT)
+
+        # 9. Смягчение внешних граней (Fillet)
+        # Применяем только к целой модели или очень осторожно к частям
+        if segment == "all":
+            y_top = obj.part.bounding_box().max.Y
+            def is_external(e):
+                if all(abs(v.X) < 0.05 for v in e.vertices()): return False
+                c = e.center()
+                if abs(c.Y - y_top) < 0.1: return True
+                if abs(abs(c.X) - hw) < 0.1 and c.Z > panel_t: return True
+                if abs(c.Z - (panel_t + tt + vd)) < 0.1: return True
+                if abs(c.X) > sw/2 + 10.0 and c.Z < 1.0: return True
+                return False
+
+            external_edges = [e for e in obj.edges() if is_external(e)]
+            if external_edges:
+                try: fillet(external_edges, radius=2.0)
                 except: pass
 
         RigidJoint("slider_start", obj.part, Location((0, tablet_bottom_y, wall)))
-        # Джойнт на задней поверхности (Z=0) в центре панели (Y=0)
         RigidJoint("adapter_mount", obj.part, Location((0, 0, 0)))
     
     return obj.part

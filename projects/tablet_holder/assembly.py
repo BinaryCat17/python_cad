@@ -11,28 +11,31 @@ class ProjectAssembly:
         self.params = params if params else {}
 
     def build(self) -> list[Shape]:
-        # 1. Создаем детали
-        lp = build_holder_half(self.params, is_left=True)
-        rp = build_holder_half(self.params, is_left=False)
+        # 1. Создаем детали (4 четверти)
+        lpt = build_holder_half(self.params, is_left=True, segment="top")
+        lpb = build_holder_half(self.params, is_left=True, segment="bottom")
+        rpt = build_holder_half(self.params, is_left=False, segment="top")
+        rpb = build_holder_half(self.params, is_left=False, segment="bottom")
+        
         ap = build_adapter(self.params)
         sp = build_slider(self.params)
 
-        # 2. ЯВНОЕ ПОЗИЦИОНИРОВАНИЕ
-        lp.location = Location((0, 0, 0))
-        rp.location = Location((0, 0, 0))
-        ap.location = lp.location * lp.joints["adapter_mount"].location * ap.joints["mount"].location.inverse()
-        
-        # Позиционируем слайдер в пазу
-        wall = self.params.get("wall", 8.0)
-        # slider_start находится ровно там, где заканчивается планшет.
-        # Используем смещение из параметров (дефолт -5.0)
+        # 2. Позиционирование (возвращаем в 0,0,0)
+        for p in [lpt, lpb, rpt, rpb]:
+            p.location = Location((0, 0, 0))
+
+        # Позиционируем адаптер и слайдер
+        ap.location = lpt.location * lpt.joints["adapter_mount"].location * ap.joints["mount"].location.inverse()
         offset_y = self.params.get("slider_offset", 0.0)
-        sp.location = lp.location * lp.joints["slider_start"].location * Pos(0, offset_y, 0)
+        sp.location = lpb.location * lpb.joints["slider_start"].location * Pos(0, offset_y, 0)
         
-        lp.label, lp.color = "Left Half", "#2c3e50"
-        rp.label, rp.color = "Right Half", "#5dade2"
+        lpt.label, lpt.color = "Left Top", "#2c3e50"
+        lpb.label, lpb.color = "Left Bottom", "#34495e"
+        rpt.label, rpt.color = "Right Top", "#5dade2"
+        rpb.label, rpb.color = "Right Bottom", "#3498db"
+        
         ap.label, ap.color = "VESA Adapter", "#e67e22"
         sp.label, sp.color = "Spring Slider", "#95a5a6"
 
         # Возвращаем список деталей
-        return [lp, rp, ap, sp]
+        return [lpt, lpb, rpt, rpb, ap, sp]
