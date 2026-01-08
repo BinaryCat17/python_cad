@@ -14,6 +14,7 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
     th_min = 205.0 # Минимальная высота планшета для прижатия (было 195)
     th_total = th + params.get("holder_padding", 68.0) 
     hw = (tw + wall * 2) / 2
+    tablet_bottom_y = th_total/2 - wall - th
     
     st = params.get("slider_front_t", 6.0)
     sw = params.get("slider_f_width", 140.0)
@@ -54,6 +55,23 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
                 make_face()
             extrude(amount=-x_dir * wall)
 
+        # 2.1 Вырез под провод (только для правой части)
+        if not is_left:
+            cutout_w = params.get("wire_cutout_w", 30.0)
+            cutout_h = tt + 6.0
+            # Центр планшета по Y
+            tablet_center_y = (th_total/2 - wall + tablet_bottom_y) / 2
+            with Locations((x_dir * hw, tablet_center_y, panel_t + tt/2)):
+                Box(wall * 3, cutout_w, cutout_h, mode=Mode.SUBTRACT)
+            
+            # Скругляем вертикальные ребра выреза
+            cutout_edges = obj.edges().filter_by(Axis.Z).sort_by(Axis.X)[-4:]
+            # Фильтруем те, что близки к нашему вырезу по Y
+            cutout_edges = [e for e in cutout_edges if abs(e.center().Y - tablet_center_y) < cutout_w/2 + 1.0]
+            if cutout_edges:
+                try: fillet(cutout_edges, radius=3.0)
+                except: pass
+
         # 3. Верхний козырек (Roof)
         roof_depth = total_depth - panel_t
         with BuildPart(mode=Mode.ADD):
@@ -80,7 +98,6 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
                 fillet(inner_edge, radius=5.0)
 
         # 4. Направляющие пазы
-        tablet_bottom_y = th_total/2 - wall - th
         # Верх паза для прижатия 205мм (фиксируем относительно низа)
         slot_height = 72.0 # (th + 68.0) - wall - th_min при исходных параметрах
         slot_bottom = -th_total/2 
