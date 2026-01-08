@@ -14,6 +14,9 @@ class CADRenderer:
 
     def setup_scene(self):
         """Настройка освещения и фона."""
+        # Явно задаем высокое DPI для VTK, чтобы избежать пикселизации на 4K
+        self.plotter.render_window.SetDPI(150)
+        
         self.plotter.set_background("#dcdcdc")
         self.plotter.remove_all_lights()
         
@@ -23,7 +26,8 @@ class CADRenderer:
             self.plotter.add_light(pv.Light(position=pos, intensity=1.1))
         
         self.plotter.enable_ssao(radius=15)
-        self.plotter.enable_anti_aliasing("ssaa") # Включаем качественное сглаживание
+        # SSAA (Super Sampling) лучше всего убирает пикселизацию на High-DPI мониторах
+        self.plotter.enable_anti_aliasing("ssaa") 
         self.plotter.add_axes()
 
     def get_gpu_info(self):
@@ -104,10 +108,15 @@ class CADRenderer:
             )
             actor_names.append(actor_name)
             
-            edges = mesh.extract_feature_edges(feature_angle=20)
+            edges = mesh.extract_feature_edges(feature_angle=30)
             if edges.n_cells > 0:
                 edge_actor_name = f"{actor_name}_e"
-                self.plotter.add_mesh(edges, color="#111111", line_width=1.0, name=edge_actor_name)
+                self.plotter.add_mesh(
+                    edges, color="#111111", 
+                    line_width=2.0, 
+                    render_lines_as_tubes=True, 
+                    name=edge_actor_name
+                )
                 actor_names.append(edge_actor_name)
                 
         except Exception as e:

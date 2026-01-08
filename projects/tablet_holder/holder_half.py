@@ -12,7 +12,7 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
     vd = params["visor_d"]
     
     th_min = 205.0 # Минимальная высота планшета для прижатия (было 195)
-    th_total = th + 68.0 # Увеличиваем корпус (было th + 38)
+    th_total = th + params.get("holder_padding", 68.0) 
     hw = (tw + wall * 2) / 2
     
     st = params.get("slider_front_t", 6.0)
@@ -81,9 +81,10 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
 
         # 4. Направляющие пазы
         tablet_bottom_y = th_total/2 - wall - th
-        # Верх паза для прижатия 205мм
-        slot_top = th_total/2 - wall - th_min
-        slot_bottom = -th_total/2 # Паз идет до самого низа (который теперь ниже на 30мм)
+        # Верх паза для прижатия 205мм (фиксируем относительно низа)
+        slot_height = 72.0 # (th + 68.0) - wall - th_min при исходных параметрах
+        slot_bottom = -th_total/2 
+        slot_top = slot_bottom + slot_height
         
         with Locations((0, (slot_top + slot_bottom)/2, panel_t - st/2)):
             Box(sw/2 + 1, slot_top - slot_bottom, st + 0.5, align=(align_x, Align.CENTER, Align.CENTER), mode=Mode.SUBTRACT)
@@ -91,10 +92,14 @@ def build_holder_half(params: dict, is_left: bool = True) -> Part:
             Box(55, slot_top - slot_bottom, panel_t + 2, align=(align_x, Align.CENTER, Align.CENTER), mode=Mode.SUBTRACT)
         
         # 5. Отверстия под адаптер (теперь 6 на каждую половину, итого 12)
-        # 5.1 Отверстия: 3 колонки (40, 90, 140) в 2 ряда (-60, 60)
-        for x_off in [40.0, 90.0, 140.0]:
+        # 5.1 Отверстия соответствуют VESA (центральные на X=hdx/2, Y=+/-hdy/2)
+        hdx = params.get("adapter_hole_dist_x", 100.0)
+        hdy = params.get("adapter_hole_dist_y", 100.0)
+        hds = params.get("adapter_hole_step_x", 50.0)
+        
+        for x_off in [hdx/2, hdx/2 + hds, hdx/2 + hds * 2]:
             xh = x_dir * x_off
-            for yh in [-60.0, 60.0]:
+            for yh in [-hdy/2, hdy/2]:
                 with Locations((xh, yh, 0)):
                     # Сквозное отверстие
                     Cylinder(radius=bd/2, height=panel_t, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)

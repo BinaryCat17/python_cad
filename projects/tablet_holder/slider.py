@@ -56,9 +56,10 @@ def build_slider(params: dict) -> Part:
 
         # 4. Отверстия под болты (смещены на 20мм ниже для прочности)
         bd = params.get("bolt_d", 4.9)
+        sbd = params.get("slider_bolt_dist", 90.0)
         with BuildPart(mode=Mode.SUBTRACT):
             with Locations(Plane.XY.offset(-wall/2) * Location((0, -50, 0))):
-                for x_pos in [-50, 50]:
+                for x_pos in [-sbd/2, sbd/2]:
                     with Locations((x_pos, 0, 0)):
                         Cylinder(radius=bd/2, height=40, align=Align.CENTER)
 
